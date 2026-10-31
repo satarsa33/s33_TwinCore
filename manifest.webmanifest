@@ -1,0 +1,19 @@
+{
+  "name": "S33 - Twin Core",
+  "short_name": "Twin Core",
+  "description": "Monophonic two-oscillator semi-modular synthesizer with patch bay, spring reverb and arpeggiator, played from a MIDI keyboard.",
+  "lang": "en",
+  "start_url": "./index.html",
+  "scope": "./",
+  "id": "s33-twin-core",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#121110",
+  "theme_color": "#121110",
+  "categories": ["music", "entertainment"],
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
