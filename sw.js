@@ -2,7 +2,7 @@
    Strategia: i file dell'app sono salvati alla prima visita; poi si risponde dalla cache
    e, se c'è rete, la cache si aggiorna in silenzio (la versione nuova compare all'apertura successiva).
    Per forzare un rinnovo completo, cambia il numero di VERSIONE qui sotto. */
-const VERSIONE = "1.0.0";
+const VERSIONE = "1.0.1";
 const CACHE = "twin-core-" + VERSIONE;
 const FILE = [
   "./", "./index.html", "./manifest.webmanifest",

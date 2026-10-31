@@ -18,8 +18,8 @@
   --mod:#b7841c; --osc:#2c5a9a; --mix:#2a7a68; --flt:#b2412b; --env:#c4691e; --spr:#6b4a8e; --out:#45423d;
 }
 *{box-sizing:border-box}
-html,body{margin:0;background:#121110;color:var(--ink);font:13px/1.3 -apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif;-webkit-user-select:none;user-select:none}
-#app{max-width:1440px;margin:0 auto;padding:12px 16px 14px;min-height:100vh;display:flex;flex-direction:column;gap:10px}
+html,body{margin:0;overflow:hidden;background:#121110;color:var(--ink);font:13px/1.3 -apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif;-webkit-user-select:none;user-select:none}
+#app{padding:12px 16px 14px;box-sizing:border-box;display:flex;flex-direction:column;gap:10px}
 /* header */
 header{display:grid;grid-template-columns:270px 1fr 440px;gap:12px;align-items:stretch}
 .logo{display:flex;flex-direction:column;justify-content:center;padding:6px 4px}
@@ -636,7 +636,8 @@ function buildPatch(){
 }
 const svg=document.getElementById("cables"), app=document.getElementById("app");
 let pdrag=null;
-const jpos=id=>{ const r=JEL[id].querySelector(".h").getBoundingClientRect(), a=app.getBoundingClientRect(); return [r.left+r.width/2-a.left,r.top+r.height/2-a.top]; };
+const zk=()=>{ const a=app.getBoundingClientRect(); return [a,a.width/app.offsetWidth||1]; };   // fattore di zoom reale (vedi fit)
+const jpos=id=>{ const r=JEL[id].querySelector(".h").getBoundingClientRect(), [a,k]=zk(); return [(r.left+r.width/2-a.left)/k,(r.top+r.height/2-a.top)/k]; };
 const curve=([x1,y1],[x2,y2])=>{ const sag=40+Math.hypot(x2-x1,y2-y1)*0.35; return `M${x1} ${y1} C${x1} ${y1+sag} ${x2} ${y2+sag} ${x2} ${y2}`; };
 function drawCables(){
   let h="";
@@ -650,9 +651,9 @@ svg.addEventListener("dblclick",e=>{ const n=e.target.dataset&&e.target.dataset.
 function jackDown(e){ const el=e.target.closest(".jk"); if(!el) return; e.preventDefault(); let id=el.dataset.j;
   // un ingresso già collegato: si stacca il cavo e lo si porta in mano dal suo capo d'uscita
   if(JTYPE[id]==="in"){ const k=P.cables.findIndex(c=>c[1]===id); if(k>=0){ id=P.cables[k][0]; P.cables.splice(k,1); rewire(); } }
-  const a=app.getBoundingClientRect(); pdrag={from:id,a:jpos(id),b:[e.clientX-a.left,e.clientY-a.top]};
+  const [a,k]=zk(); pdrag={from:id,a:jpos(id),b:[(e.clientX-a.left)/k,(e.clientY-a.top)/k]};
   hlTargets(true); drawCables();
-  const mv=ev=>{ pdrag.b=[ev.clientX-a.left,ev.clientY-a.top]; drawCables(); };
+  const mv=ev=>{ pdrag.b=[(ev.clientX-a.left)/k,(ev.clientY-a.top)/k]; drawCables(); };
   const up=ev=>{ removeEventListener("pointermove",mv); removeEventListener("pointerup",up);
     const t=document.elementFromPoint(ev.clientX,ev.clientY), tj=t&&t.closest&&t.closest(".jk"); hlTargets(false);
     if(tj){ const to=tj.dataset.j, from=pdrag.from; if(JTYPE[to]!==JTYPE[from]){ const o=JTYPE[from]==="out"?from:to, i=JTYPE[from]==="out"?to:from;
@@ -661,7 +662,10 @@ function jackDown(e){ const el=e.target.closest(".jk"); if(!el) return; e.preven
   addEventListener("pointermove",mv); addEventListener("pointerup",up);
 }
 function hlTargets(on){ Object.entries(JEL).forEach(([id,el])=>el.classList.toggle("hl",on&&pdrag&&JTYPE[id]!==JTYPE[pdrag.from])); }
-addEventListener("resize",drawCables);
+/* il pannello è disegnato per 1440×820: si ingrandisce o rimpicciolisce per riempire la finestra,
+   e la dimensione che avanza (in larghezza o in altezza) la prendono i blocchi, che si allargano */
+function fit(){ const s=Math.max(0.6,Math.min(innerWidth/1440,innerHeight/820)); app.style.zoom=s; app.style.height=(innerHeight/s)+"px"; drawCables(); }
+addEventListener("resize",fit); fit();
 
 /* ---- wheels ---- */
 function wheel(id,cb,spring,init){ const w=document.getElementById(id), i=w.querySelector("i"); let v=init;
@@ -717,7 +721,7 @@ document.getElementById("go").onclick=async e=>{ if(ctx) return; const b=e.curre
   catch(err){ ctx=null; b.textContent="Start audio"; document.getElementById("st").textContent="Unable to start the audio: "+(err&&err.message||err); } };
 document.getElementById("init").onclick=()=>{ loadPreset({},"Init"); fillPre("f0"); };
 document.addEventListener("contextmenu",e=>{ if(e.target.closest(".kn,.k,.w")) e.preventDefault(); });
-buildPanel(); buildPatch(); buildArp(); buildKeys(); fillPre(); { const i=PRESETS.findIndex(p=>p[1]===P.name), u=user.findIndex(x=>x.name===P.name); preSel.value=i>=0?"f"+i:u>=0?"u"+u:""; setName(P.name||"Init"); } requestAnimationFrame(frame); requestAnimationFrame(drawCables);
+buildPanel(); buildPatch(); buildArp(); buildKeys(); fillPre(); { const i=PRESETS.findIndex(p=>p[1]===P.name), u=user.findIndex(x=>x.name===P.name); preSel.value=i>=0?"f"+i:u>=0?"u"+u:""; setName(P.name||"Init"); } requestAnimationFrame(frame); requestAnimationFrame(fit);
 /* PWA: il service worker funziona solo da http(s); aperta come file locale l'app va comunque */
 if("serviceWorker" in navigator && /^https?:$/.test(location.protocol)){
   addEventListener("load",()=>{ navigator.serviceWorker.register("sw.js").catch(()=>{}); });
