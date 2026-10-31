@@ -307,7 +307,7 @@ function smooth(param,v,t){ if(!ctx) return; param.setTargetAtTime(v,t??ctx.curr
 async function startAudio(){
   ctx=new AudioContext({latencyHint:"interactive"});
   await ctx.audioWorklet.addModule("data:text/javascript;charset=utf-8,"+encodeURIComponent(WORKLET));
-  E=buildEngine(ctx); applyAll(); rewire(); return ctx;
+  E=buildEngine(ctx); resetTrackers(); applyAll(); rewire(); return ctx;
 }
 function buildEngine(ctx){
   const e={};
@@ -386,10 +386,23 @@ function applyAll(){ if(!E) return; const t=ctx.currentTime, vp=n=>E.vco.paramet
 
 /* =================== Mono: last-note priority, legato, glide =================== */
 const held=[]; let gate=false;
-function setPitch(note,t,glide){ const o=E.pitch.offset, v=note-60;
-  if(glide&&P.glide>0.001){ hold(o,t); o.setTargetAtTime(v,t,P.glide/3); } else { o.cancelScheduledValues(t); o.setValueAtTime(v,t); } }
-function gateOn(t){ const o=E.env.offset, a=Math.max(P.a,0.002); hold(o,t); o.linearRampToValueAtTime(1,t+a); o.setTargetAtTime(P.s,t+a,Math.max(P.d,0.005)/3); gate=true; if(!arpRun) led(true); }
-function gateOff(t){ const o=E.env.offset; hold(o,t); o.setTargetAtTime(0,t,Math.max(P.r,0.005)/3); gate=false; if(!arpRun) led(false); }
+/* Inviluppo e intonazione: il valore corrente lo calcoliamo noi (funzione f) invece di affidarci a
+   cancelAndHoldAtTime, che in Chrome, interrotto durante un setTargetAtTime, a volte "tiene" il valore 0:
+   il nuovo attacco partiva da zero mentre la nota precedente stava ancora suonando, e si sentiva un click. */
+const envF={f:()=>0}, pitF={f:()=>0};
+function resetTrackers(){ envF.f=()=>0; pitF.f=()=>0; }
+function setPitch(note,t,glide){ const o=E.pitch.offset, v=note-60, v0=pitF.f(t);
+  o.cancelScheduledValues(t);
+  if(glide&&P.glide>0.001){ const tau=P.glide/3; o.setValueAtTime(v0,t); o.setTargetAtTime(v,t,tau); pitF.f=x=>v+(v0-v)*Math.exp(-Math.max(0,x-t)/tau); }
+  else { o.setValueAtTime(v,t); pitF.f=()=>v; } }
+function gateOn(t){ const o=E.env.offset, a=Math.max(P.a,0.002), S=P.s, tau=Math.max(P.d,0.005)/3, v0=envF.f(t);
+  o.cancelScheduledValues(t); o.setValueAtTime(v0,t); o.linearRampToValueAtTime(1,t+a); o.setTargetAtTime(S,t+a,tau);
+  envF.f=x=>x<=t?v0:x<=t+a?v0+(1-v0)*(x-t)/a:S+(1-S)*Math.exp(-(x-t-a)/tau);
+  gate=true; if(!arpRun) led(true); }
+function gateOff(t){ const o=E.env.offset, tau=Math.max(P.r,0.005)/3, v0=envF.f(t);
+  o.cancelScheduledValues(t); o.setValueAtTime(v0,t); o.setTargetAtTime(0,t,tau);
+  envF.f=x=>x<=t?v0:v0*Math.exp(-(x-t)/tau);
+  gate=false; if(!arpRun) led(false); }
 function monoOn(n){ if(!E) return; const t=ctx.currentTime, legato=held.length>0;
   const i=held.indexOf(n); if(i>=0) held.splice(i,1); held.push(n);
   setPitch(n,t,P.glideMode===0||legato);                 // modo 0: glide sempre; modo 1: solo sulle note legate
